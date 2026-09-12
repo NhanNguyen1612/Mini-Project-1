@@ -8,14 +8,13 @@ compatibility_date = "2024-09-23"
 pages_build_output_dir = "./dist"
 
 # =============================================================
-# Cloudflare D1 Database binding (Uncomment and update ID if you created D1 on your Cloudflare account)
-# Run to create:  wrangler d1 create vku-survey-db-v2
-# Run schema:     wrangler d1 execute vku-survey-db-v2 --file=./worker/schema.sql
+# Cloudflare D1 Database binding
 # =============================================================
-# [[d1_databases]]
-# binding = "DB"
-# database_name = "vku-survey-db-v2"
-# database_id = "your-d1-database-id"
+[[d1_databases]]
+binding = "DB"
+database_name = "vku-survey-db-v2"
+database_id = "178e99b7-7773-4fb4-a819-0f27ab16f7f0"
+
 
 
 # =============================================================

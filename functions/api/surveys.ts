@@ -154,6 +154,22 @@ export const onRequestGet = async (context: { env: Env }) => {
   // If Cloudflare D1 exists:
   if (env.DB) {
     try {
+      await env.DB.prepare(`
+        CREATE TABLE IF NOT EXISTS vku_surveys (
+          uuid TEXT PRIMARY KEY,
+          building TEXT,
+          floor TEXT,
+          room_number TEXT,
+          category TEXT,
+          condition_rating INTEGER,
+          defect_notes TEXT,
+          photo_base64 TEXT,
+          inspector_name TEXT,
+          created_at TEXT,
+          synced_at TEXT
+        )
+      `).run();
+
       const { results } = await env.DB.prepare('SELECT * FROM vku_surveys ORDER BY created_at DESC LIMIT 100').all();
       const formatted = (results || []).map((row: any) => ({
         uuid: row.uuid,

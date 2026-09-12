@@ -53,7 +53,7 @@ class SyncService {
   if (savedEndpoint) return savedEndpoint;
 
   // Domain Cloudflare Pages chuẩn của bạn
-  const PAGES_URL = 'https://vku-field-survey-c6k.pages.dev';
+  const PAGES_URL = 'https://mini-project-1.pages.dev';
 
   // Nếu chạy trên Capacitor/Android (window.location chứa 'localhost' hoặc 'capacitor://')
   if (
