@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ClipboardCheck,
   Inbox,
   History,
   Activity,
-  PlusCircle
+  LayoutGrid
 } from 'lucide-react';
 import { Header } from './components/Header';
 import { MultiStepForm } from './components/MultiStepForm';
@@ -57,8 +56,8 @@ export function App() {
                   : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
               }`}
             >
-              <PlusCircle className="w-4 h-4" />
-              <span>Kiểm định mới</span>
+              <LayoutGrid className="w-4 h-4" />
+              <span>Bento Cockpit</span>
             </button>
 
             <button
@@ -127,8 +126,8 @@ export function App() {
             activeTab === 'form' ? 'text-indigo-600 font-bold' : 'text-slate-500 font-medium'
           }`}
         >
-          <ClipboardCheck className="w-5 h-5" />
-          <span className="text-[10px]">Khảo sát</span>
+          <LayoutGrid className="w-5 h-5" />
+          <span className="text-[10px]">Cockpit</span>
         </button>
 
         <button

@@ -80,10 +80,10 @@ export const Header: React.FC<HeaderProps> = ({ pendingCount, onSyncTriggered })
             <div className="flex items-center gap-1.5">
               <h1 className="text-base font-black text-slate-900 leading-tight">VKU Smart Audit</h1>
               <span className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
-                PWA
+                PWA • D1
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">Khảo sát Giảng đường Thông minh · Offline</p>
+            <p className="text-[11px] text-slate-500 font-medium">Trung tâm Kiểm định Không gian & Thiết bị Số · Cloudflare D1</p>
           </div>
         </div>
 

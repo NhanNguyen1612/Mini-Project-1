@@ -1,134 +1,111 @@
 import React, { useState, useEffect } from 'react';
 import {
-  MapPin,
-  Layers,
-  FileText,
-  CheckCircle,
-  ArrowRight,
-  ArrowLeft,
-  Save,
   RotateCcw,
-  Sparkles,
+  CheckCircle2,
   AlertTriangle,
-  Cpu,
-  Tv,
+  MonitorPlay,
   Wind,
-  Zap,
+  Wifi,
   Armchair,
-  Check,
-  ShieldAlert,
-  Sliders,
-  Tag,
-  Clock,
-  UserCheck
+  ShieldCheck,
+  Radio,
+  FileCheck2,
+  Camera
 } from 'lucide-react';
-import type { SurveyCategory, SurveyFormData, PriorityLevel, ClassroomType } from '../types/survey';
-import { saveDraft, getDraft, clearDraft, enqueueSurvey } from '../db/indexedDB';
-import { networkService } from '../services/networkService';
+import type {
+  SurveyFormData,
+  SurveyCategory,
+  PriorityLevel
+} from '../types/survey';
+import { enqueueSurvey, saveDraft, getDraft, clearDraft } from '../db/indexedDB';
 import { syncService } from '../services/syncService';
-import { StarRating } from './StarRating';
+import { networkService } from '../services/networkService';
 import { CameraCapture } from './CameraCapture';
+import { SpatialMatrixSelector } from './SpatialMatrixSelector';
+import { FacilityHealthDial } from './FacilityHealthDial';
+import { LiveAuditTicket } from './LiveAuditTicket';
+import { SlideToSubmit } from './SlideToSubmit';
 
 interface MultiStepFormProps {
   onSubmitted: () => void;
 }
 
-interface CategoryOption {
+const CATEGORIES: {
   id: SurveyCategory;
-  label: string;
+  title: string;
+  subtitle: string;
+  icon: React.ElementType;
   badge: string;
-  icon: React.ReactNode;
-  desc: string;
-}
-
-const CATEGORY_OPTIONS: CategoryOption[] = [
-  {
-    id: 'TechHardware',
-    label: 'Máy trạm AI & PC Lab',
-    badge: 'Hardware',
-    icon: <Cpu className="w-5 h-5" />,
-    desc: 'Case PC, màn hình 144Hz, phím chuột, camera AI'
-  },
+}[] = [
   {
     id: 'AudioVisual',
-    label: 'Trình chiếu & Âm thanh',
-    badge: 'Projector',
-    icon: <Tv className="w-5 h-5" />,
-    desc: 'Smart Board, máy chiếu laser, micro, loa giảng đường'
+    title: 'Âm thanh & Máy chiếu',
+    subtitle: 'Projector 4K, Micro, Âm ly, Màn chiếu điện',
+    icon: MonitorPlay,
+    badge: 'AV-SYSTEM'
   },
   {
     id: 'ClimateAC',
-    label: 'Vi khí hậu & Máy lạnh',
-    badge: 'AC',
-    icon: <Wind className="w-5 h-5" />,
-    desc: 'Điều hòa trung tâm, cảm biến nhiệt độ, thông gió'
+    title: 'Điều hòa & Không khí',
+    subtitle: 'Hệ thống VRV, Điều hòa inverter, Quạt thông gió',
+    icon: Wind,
+    badge: 'HVAC-AIR'
   },
   {
     id: 'LightingPower',
-    label: 'Điện & Chiếu sáng LED',
-    badge: 'Electrical',
-    icon: <Zap className="w-5 h-5" />,
-    desc: 'Đèn chống lóa, ổ cắm sàn, cầu dao PCCC'
+    title: 'Mạng Wi-Fi & Nguồn điện',
+    subtitle: 'AP Wi-Fi 6, Ổ cắm âm sàn, Chiếu sáng LED',
+    icon: Wifi,
+    badge: 'NET-POWER'
   },
   {
     id: 'ErgoFurniture',
-    label: 'Nội thất Công thái học',
-    badge: 'Furniture',
-    icon: <Armchair className="w-5 h-5" />,
-    desc: 'Bàn ghế thông minh, bục giảng xoay, rèm cản nhiệt'
+    title: 'Bàn ghế & Nội thất',
+    subtitle: 'Bàn ghế công thái học, Bục giảng điện tử',
+    icon: Armchair,
+    badge: 'SMART-FURNITURE'
   }
 ];
 
-const CLASSROOM_TYPES: { id: ClassroomType; label: string; desc: string; icon: string }[] = [
-  { id: 'SMART_CLASSROOM', label: 'Phòng học Thông minh', desc: 'Bảng tương tác & Hybrid learning', icon: '✨' },
-  { id: 'AI_LAB', label: 'Lab AI & Robotics', desc: 'Trạm máy GPU & trang bị thực hành', icon: '🤖' },
-  { id: 'LECTURE_HALL', label: 'Giảng đường bậc thang', desc: 'Sức chứa lớn > 120 sinh viên', icon: '🏛️' },
-  { id: 'COWORKING_SPACE', label: 'Không gian Tự học', desc: 'Khu tự do sáng tạo sinh viên', icon: '💡' }
-];
-
-const QUICK_TAGS = [
-  '#MờHình',
-  '#ChớpNháy',
-  '#NhiệtĐộNóng',
-  '#MấtMạng',
-  '#ỔCắmLỏng',
-  '#HỏngMicro',
-  '#RèLoa',
-  '#GhếLungLay',
-  '#CầnVệSinh',
-  '#CầnNângCấp'
-];
-
-const BUILDINGS = ['Khu V (Việt - Hàn)', 'Khu C (Công nghệ cao)', 'Khu B (Giảng đường)', 'Khu A (Hành chính)', 'Khu K (Ký túc xá)'];
-const FLOORS = ['Tầng 1', 'Tầng 2', 'Tầng 3', 'Tầng 4', 'Tầng 5'];
+const QUICK_TAG_OPTIONS: Record<string, string[]> = {
+  AudioVisual: ['Mất tín hiệu HDMI', 'Máy chiếu mờ/vàng', 'Micro mất tiếng', 'Loa rè', 'Màn chiếu kẹt'],
+  ClimateAC: ['Không mát / Chảy nước', 'Kêu to bất thường', 'Mất remote', 'Mùi ẩm mốc'],
+  LightingPower: ['Mất kết nối Wi-Fi', 'Ổ cắm lỏng/chập', 'Đèn LED nhấp nháy', 'Tốc độ mạng chậm'],
+  ErgoFurniture: ['Ghế gãy bánh xe', 'Bàn lung lay', 'Bục giảng hỏng khóa', 'Mặt bàn trầy xước']
+};
 
 export const MultiStepForm: React.FC<MultiStepFormProps> = ({ onSubmitted }) => {
-  const [step, setStep] = useState<number>(1);
-  const [isOnline, setIsOnline] = useState<boolean>(networkService.isOnline);
-  const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Form State
   const [formData, setFormData] = useState<SurveyFormData>({
     building: 'Khu V (Việt - Hàn)',
     floor: 'Tầng 3',
-    roomNumber: '',
+    roomNumber: 'V301',
     category: 'AudioVisual',
-    conditionRating: 4,
+    conditionRating: 5,
     defectNotes: '',
     photoBase64: undefined,
-    inspectorName: '',
+    inspectorName: 'KTV VKU Smart Campus',
     priority: 'MEDIUM',
     quickTags: [],
     classroomType: 'SMART_CLASSROOM'
   });
 
-  // 1. Subscribe to network status
+  const [isOnline, setIsOnline] = useState<boolean>(networkService.isOnline);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [successModalData, setSuccessModalData] = useState<{
+    uuid: string;
+    room: string;
+    online: boolean;
+  } | null>(null);
+
+  // Generate a live simulated UUID for the ticket preview
+  const livePreviewUuid = React.useMemo(() => {
+    return 'VKU-' + Math.random().toString(36).substring(2, 10).toUpperCase() + '-' + Date.now().toString(36).toUpperCase();
+  }, []);
+
+  // 1. Subscribe to network changes
   useEffect(() => {
-    return networkService.subscribe((online) => {
-      setIsOnline(online);
-    });
+    return networkService.subscribe((online) => setIsOnline(online));
   }, []);
 
   // 2. Load draft from IndexedDB on initial mount
@@ -144,9 +121,6 @@ export const MultiStepForm: React.FC<MultiStepFormProps> = ({ onSubmitted }) => 
             quickTags: savedDraft.data.quickTags || [],
             classroomType: savedDraft.data.classroomType || 'SMART_CLASSROOM'
           }));
-          if (savedDraft.currentStep) {
-            setStep(savedDraft.currentStep);
-          }
           setHasRestoredDraft(true);
         }
       } catch (err) {
@@ -156,767 +130,419 @@ export const MultiStepForm: React.FC<MultiStepFormProps> = ({ onSubmitted }) => 
     loadSavedDraft();
   }, []);
 
-  // 3. Real-time auto-save to IndexedDB whenever formData or step changes
+  // 3. Real-time auto-save to IndexedDB draft
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Only save if user has filled at least something
-      if (
-        formData.roomNumber ||
-        formData.defectNotes ||
-        formData.photoBase64 ||
-        (formData.quickTags && formData.quickTags.length > 0)
-      ) {
-        saveDraft(formData, step).catch((e) => console.error('Auto-save draft failed:', e));
+      if (formData.roomNumber || formData.defectNotes || (formData.quickTags && formData.quickTags.length > 0)) {
+        saveDraft(formData, 1).catch((e) => console.error('Draft auto-save error:', e));
       }
-    }, 400); // 400ms debounce
-
+    }, 600);
     return () => clearTimeout(timer);
-  }, [formData, step]);
+  }, [formData]);
 
-  const handleFieldChange = (field: keyof SurveyFormData, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // Handle Quick Tag toggle
+  const toggleQuickTag = (tag: string) => {
+    setFormData((prev) => {
+      const currentTags = prev.quickTags || [];
+      const newTags = currentTags.includes(tag)
+        ? currentTags.filter((t) => t !== tag)
+        : [...currentTags, tag];
+      return { ...prev, quickTags: newTags };
+    });
   };
 
-  const handleToggleQuickTag = (tag: string) => {
-    const currentTags = formData.quickTags || [];
-    const exists = currentTags.includes(tag);
-    const updatedTags = exists ? currentTags.filter((t) => t !== tag) : [...currentTags, tag];
-    handleFieldChange('quickTags', updatedTags);
-  };
-
-  const handleResetDraft = async () => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa bản nháp và điền lại từ đầu?')) {
+  // Clear Form / Reset Draft
+  const handleReset = async () => {
+    if (window.confirm('Bạn có chắc muốn đặt lại toàn bộ bảng kiểm định và xóa bản nháp hiện tại?')) {
       await clearDraft();
       setFormData({
         building: 'Khu V (Việt - Hàn)',
         floor: 'Tầng 3',
-        roomNumber: '',
+        roomNumber: 'V301',
         category: 'AudioVisual',
-        conditionRating: 4,
+        conditionRating: 5,
         defectNotes: '',
         photoBase64: undefined,
-        inspectorName: '',
+        inspectorName: formData.inspectorName,
         priority: 'MEDIUM',
         quickTags: [],
         classroomType: 'SMART_CLASSROOM'
       });
-      setStep(1);
       setHasRestoredDraft(false);
     }
   };
 
-  const validateStep = (currentStep: number): boolean => {
-    if (currentStep === 1) {
-      if (!formData.roomNumber.trim()) {
-        alert('Vui lòng nhập Mã phòng học kiểm định (Ví dụ: V301, C402, B205)!');
-        return false;
-      }
+  // Validation
+  const validateInspection = (): boolean => {
+    if (!formData.roomNumber.trim()) {
+      alert('Vui lòng chọn hoặc nhập mã số phòng học kiểm định!');
+      return false;
     }
-    if (currentStep === 2) {
-      if (!formData.category) {
-        alert('Vui lòng chọn hạng mục tiện nghi cần đánh giá!');
-        return false;
-      }
-    }
-    if (currentStep === 3) {
-      if (
-        formData.conditionRating <= 3 &&
-        !formData.defectNotes.trim() &&
-        (!formData.quickTags || formData.quickTags.length === 0)
-      ) {
-        alert('Với tình trạng thiết bị ≤ 3 sao, vui lòng chọn ít nhất 1 thẻ lỗi nhanh hoặc ghi chú mô tả sự cố!');
-        return false;
-      }
+    if (
+      formData.conditionRating <= 3 &&
+      !formData.defectNotes.trim() &&
+      (!formData.quickTags || formData.quickTags.length === 0)
+    ) {
+      alert(
+        'Chỉ số sức khỏe thiết bị ở mức ≤ 60% (Cảnh báo/Khẩn cấp). Vui lòng chọn ít nhất 1 thẻ sự cố hoặc nhập ghi chú mô tả hư hại!'
+      );
+      return false;
     }
     return true;
   };
 
-  const handleNext = () => {
-    if (validateStep(step)) {
-      setStep((prev) => Math.min(prev + 1, 4));
-    }
-  };
-
-  const handleBack = () => {
-    setStep((prev) => Math.max(prev - 1, 1));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) return;
+  // Submission handler triggered by SlideToSubmit
+  const handleDispatchSubmit = async () => {
+    if (!validateInspection()) return;
 
     setIsSubmitting(true);
     try {
-      // 1. Tag offline submission with UUID, timestamp, and save as PENDING_SYNC in IndexedDB
+      // 1. Tag offline item with UUID, timestamp, and save as PENDING_SYNC in IndexedDB
       const queuedItem = await enqueueSurvey(formData);
 
-      // 2. Clear real-time draft from IndexedDB
+      // 2. Clear real-time draft
       await clearDraft();
 
-      // 3. If online, trigger immediate background sync dispatch
+      // 3. If online, immediately process queue to Cloudflare D1
       if (isOnline) {
         syncService.processQueue().catch((e) => console.error(e));
-        setSuccessMessage(`Đã gửi thành công phiếu kiểm định phòng ${formData.roomNumber}!`);
-      } else {
-        setSuccessMessage(
-          `Bạn đang ngoại tuyến. Khảo sát phòng ${formData.roomNumber} đã được mã hóa UUID (${queuedItem.uuid.slice(
-            0,
-            8
-          )}...) và lưu vào Hàng đợi IndexedDB. Sẽ tự động gửi khi có mạng!`
-        );
       }
 
-      // Reset form
+      setSuccessModalData({
+        uuid: queuedItem.uuid,
+        room: formData.roomNumber,
+        online: isOnline
+      });
+
+      // Reset form fields
       setFormData({
         building: 'Khu V (Việt - Hàn)',
         floor: 'Tầng 3',
-        roomNumber: '',
+        roomNumber: 'V301',
         category: 'AudioVisual',
-        conditionRating: 4,
+        conditionRating: 5,
         defectNotes: '',
         photoBase64: undefined,
-        inspectorName: formData.inspectorName, // keep inspector name for convenience
+        inspectorName: formData.inspectorName,
         priority: 'MEDIUM',
         quickTags: [],
         classroomType: 'SMART_CLASSROOM'
       });
-      setStep(1);
       setHasRestoredDraft(false);
-
-      setTimeout(() => {
-        setSuccessMessage(null);
-        onSubmitted();
-      }, 2500);
     } catch (err: any) {
       console.error('Submit failed:', err);
-      alert('Đã xảy ra lỗi khi lưu khảo sát: ' + err.message);
+      alert('Đã xảy ra lỗi khi lưu kiểm định: ' + err.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const activeCategoryObj =
-    CATEGORY_OPTIONS.find((c) => c.id === formData.category) ||
-    CATEGORY_OPTIONS.find((c) => c.badge === formData.category) ||
-    CATEGORY_OPTIONS[0];
+  const activeCategoryKey = (formData.category in QUICK_TAG_OPTIONS) ? formData.category : 'AudioVisual';
+  const availableTags = QUICK_TAG_OPTIONS[activeCategoryKey] || [];
 
   return (
-    <div className="bg-white/95 backdrop-blur-md rounded-3xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 overflow-hidden transition-all">
-      {/* Draft Notification Banner */}
-      {hasRestoredDraft && (
-        <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border-b border-amber-200/80 px-4 py-2.5 flex items-center justify-between text-xs text-amber-900">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-amber-600 shrink-0 animate-spin" style={{ animationDuration: '6s' }} />
-            <span>Đã tự động khôi phục dữ liệu phiên kiểm định từ <strong>IndexedDB</strong>.</span>
+    <div className="space-y-6">
+      {/* Top Cockpit Status Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 text-white px-4 sm:px-5 py-3 rounded-2xl border border-slate-800 shadow-md">
+        <div className="flex items-center gap-2.5">
+          <div className="p-1.5 rounded-lg bg-indigo-500/20 text-cyan-400 border border-indigo-500/30">
+            <Radio className="w-4 h-4 animate-pulse" />
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono font-bold tracking-wider uppercase text-slate-200">
+                Bento Inspection Cockpit v3.0
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-900 text-indigo-200 font-mono font-semibold">
+                ALL-IN-ONE
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Kiểm định cơ sở vật chất theo không gian trực tiếp • Ký số tức thì
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {hasRestoredDraft && (
+            <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-800/80 px-2 py-1 rounded-lg">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Đã khôi phục nháp
+            </span>
+          )}
           <button
             type="button"
-            onClick={handleResetDraft}
-            className="flex items-center gap-1 font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2 py-1 rounded-lg border border-rose-200 transition-all hover:scale-105 active:scale-95"
+            onClick={handleReset}
+            className="flex items-center gap-1 text-[11px] font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-all"
+            title="Xóa nháp và đặt lại"
           >
-            <RotateCcw className="w-3 h-3" /> Làm mới
+            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+            <span>Làm mới</span>
           </button>
-        </div>
-      )}
-
-      {/* Success Notification Alert */}
-      {successMessage && (
-        <div className="bg-emerald-500/10 border-b border-emerald-300 p-4 flex items-start gap-3 animate-fadeIn">
-          <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-          <div>
-            <h4 className="text-sm font-bold text-emerald-900">Ghi nhận phiếu kiểm định thành công!</h4>
-            <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">{successMessage}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Neo-Step Progress Header */}
-      <div className="p-5 sm:p-6 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white relative overflow-hidden">
-        {/* Background glow effects */}
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 w-44 h-44 rounded-full bg-indigo-500/20 blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-8 w-36 h-36 rounded-full bg-cyan-500/20 blur-2xl pointer-events-none" />
-
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/30 text-indigo-200 border border-indigo-400/30">
-                Audit Flow
-              </span>
-              <span className="text-xs text-slate-300 font-medium">
-                Bước {step} trên 4
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-extrabold text-cyan-300">
-                {step * 25}%
-              </span>
-              <button
-                type="button"
-                onClick={handleResetDraft}
-                className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 px-2 py-0.5 rounded-md hover:bg-white/10 transition-colors"
-                title="Làm mới form"
-              >
-                <RotateCcw className="w-3 h-3" /> Đặt lại
-              </button>
-            </div>
-          </div>
-
-          <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
-            {step === 1 && '1. Không gian & Vị trí Giảng đường'}
-            {step === 2 && '2. Hạng mục Tiện nghi & Mức ưu tiên'}
-            {step === 3 && '3. Đánh giá Chất lượng & Minh chứng'}
-            {step === 4 && '4. Thẻ Kiểm Định Số & Xác Nhận'}
-          </h2>
-
-          <p className="text-xs text-slate-300 mt-1 max-w-xl">
-            {step === 1 && 'Lựa chọn loại phòng học chuyên dụng và tọa độ kiểm định trong khuôn viên VKU.'}
-            {step === 2 && 'Xác định hệ thống thiết bị cần đánh giá và mức độ ưu tiên xử lý.'}
-            {step === 3 && 'Chấm điểm chất lượng thực tế, chọn nhanh nhãn sự cố và chụp ảnh lưu IndexedDB.'}
-            {step === 4 && 'Kiểm tra tổng quan thẻ kiểm định số trước khi nộp lên máy chủ hoặc lưu Offline.'}
-          </p>
-
-          {/* Step Pills Bar */}
-          <div className="grid grid-cols-4 gap-2 mt-5">
-            {[
-              { num: 1, label: 'Vị trí', icon: <MapPin className="w-3 h-3" /> },
-              { num: 2, label: 'Hạng mục', icon: <Sliders className="w-3 h-3" /> },
-              { num: 3, label: 'Đánh giá', icon: <Sparkles className="w-3 h-3" /> },
-              { num: 4, label: 'Nộp phiếu', icon: <Check className="w-3 h-3" /> }
-            ].map((s) => {
-              const isActive = step === s.num;
-              const isPast = step > s.num;
-              return (
-                <div
-                  key={s.num}
-                  className="flex flex-col gap-1.5 cursor-pointer"
-                  onClick={() => {
-                    if (s.num < step || validateStep(step)) {
-                      setStep(s.num);
-                    }
-                  }}
-                >
-                  <div
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      isActive
-                        ? 'bg-gradient-to-r from-cyan-400 to-indigo-400 shadow-[0_0_12px_rgba(99,102,241,0.8)]'
-                        : isPast
-                        ? 'bg-emerald-400'
-                        : 'bg-slate-700/80'
-                    }`}
-                  />
-                  <div className="flex items-center gap-1">
-                    <span
-                      className={`text-[11px] font-bold hidden sm:inline ${
-                        isActive
-                          ? 'text-cyan-300'
-                          : isPast
-                          ? 'text-emerald-300'
-                          : 'text-slate-400'
-                      }`}
-                    >
-                      {s.label}
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
 
-      {/* Form Content Body */}
-      <form onSubmit={handleSubmit} className="p-5 sm:p-7 space-y-6">
-        {/* ===================== STEP 1 ===================== */}
-        {step === 1 && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* 1. Classroom Type Selector */}
-            <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2.5 flex items-center justify-between">
-                <span>Loại phòng học chuyên dụng (Space Type)</span>
-                <span className="text-[10px] text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded font-bold">Chuẩn VKU</span>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {CLASSROOM_TYPES.map((t) => {
-                  const isSelected = formData.classroomType === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => handleFieldChange('classroomType', t.id)}
-                      className={`p-3.5 rounded-2xl border text-left transition-all relative overflow-hidden ${
-                        isSelected
-                          ? 'border-indigo-600 bg-indigo-50/60 shadow-md ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/50'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl p-2 rounded-xl bg-white shadow-xs border border-slate-100">{t.icon}</span>
-                        <div>
-                          <div className="text-xs font-bold text-slate-900">{t.label}</div>
-                          <div className="text-[11px] text-slate-500 mt-0.5">{t.desc}</div>
-                        </div>
+      {/* Main Responsive Grid: Cockpit Panels & Live Ticket */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        {/* Left 7/12 Columns: Spatial Selector, Facility Health Dial, Category, Telemetry */}
+        <div className="lg:col-span-7 space-y-5">
+          {/* Module 1: Spatial Matrix Selector */}
+          <SpatialMatrixSelector
+            building={formData.building}
+            floor={formData.floor}
+            roomNumber={formData.roomNumber}
+            classroomType={formData.classroomType}
+            onBuildingChange={(b) => setFormData((prev) => ({ ...prev, building: b }))}
+            onFloorChange={(f) => setFormData((prev) => ({ ...prev, floor: f }))}
+            onRoomNumberChange={(r) => setFormData((prev) => ({ ...prev, roomNumber: r }))}
+            onClassroomTypeChange={(t) => setFormData((prev) => ({ ...prev, classroomType: t }))}
+          />
+
+          {/* Module 2: Category Bento Selector */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-3 border-b border-slate-100 pb-2.5">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Hạng mục cơ sở vật chất cần đánh giá
+              </h4>
+              <span className="text-[10px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                1-TOUCH SELECT
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {CATEGORIES.map((cat) => {
+                const isSelected = formData.category === cat.id;
+                const IconC = cat.icon;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, category: cat.id }))}
+                    className={`flex items-start gap-3 p-3 rounded-xl border text-left transition-all relative overflow-hidden ${
+                      isSelected
+                        ? 'bg-gradient-to-br from-indigo-50/90 via-white to-indigo-50/40 border-indigo-600 text-indigo-950 shadow-md shadow-indigo-600/10 scale-[1.01]'
+                        : 'bg-slate-50/70 border-slate-200/90 text-slate-700 hover:bg-slate-100/80 hover:border-slate-300'
+                    }`}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-0 right-0 w-8 h-8 bg-indigo-600 flex items-center justify-center rounded-bl-xl text-white">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
                       </div>
-                      {isSelected && (
-                        <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 2. Building Selector */}
-            <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2 flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5 text-indigo-600" /> Tòa nhà kiểm định (Campus Building)
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {BUILDINGS.map((b) => {
-                  const isSelected = formData.building === b;
-                  return (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => handleFieldChange('building', b)}
-                      className={`p-3 rounded-xl border text-xs font-bold transition-all text-center ${
-                        isSelected
-                          ? 'border-indigo-600 bg-gradient-to-b from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/25'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                    <div
+                      className={`p-2 rounded-lg shrink-0 mt-0.5 ${
+                        isSelected ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'
                       }`}
                     >
-                      {b}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* 3. Floor & Room Number */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                  <Layers className="w-3.5 h-3.5 text-indigo-600" /> Tầng (Floor Level)
-                </label>
-                <select
-                  value={formData.floor}
-                  onChange={(e) => handleFieldChange('floor', e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-semibold text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs"
-                >
-                  {FLOORS.map((f) => (
-                    <option key={f} value={f}>
-                      {f}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-indigo-600" /> Số phòng học (Room ID) <span className="text-rose-500">*</span>
-                  </span>
-                  <span className="text-[10px] text-slate-400">Ví dụ: V301, C402</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: V301, B204, A102..."
-                  value={formData.roomNumber}
-                  onChange={(e) => handleFieldChange('roomNumber', e.target.value.toUpperCase())}
-                  className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-black tracking-wide text-indigo-950 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* 4. Inspector Name */}
-            <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-indigo-600" /> Cán bộ / Sinh viên kiểm định (Inspector MSSV)
-              </label>
-              <input
-                type="text"
-                placeholder="Họ tên cán bộ hoặc MSSV sinh viên (VD: Nguyễn Văn A - 22GIT...)"
-                value={formData.inspectorName}
-                onChange={(e) => handleFieldChange('inspectorName', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs"
-              />
+                      <IconC className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold block">{cat.title}</span>
+                      <span className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
+                        {cat.subtitle}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        )}
 
-        {/* ===================== STEP 2 ===================== */}
-        {step === 2 && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* Category Bento Selector */}
-            <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2.5 flex items-center justify-between">
-                <span>Hạng mục tiện nghi khảo sát (Facility Category)</span>
-                <span className="text-[10px] text-slate-400">Chọn 1 hạng mục chính</span>
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {CATEGORY_OPTIONS.map((cat) => {
-                  const isSelected =
-                    formData.category === cat.id || formData.category === cat.badge;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => handleFieldChange('category', cat.id)}
-                      className={`p-4 rounded-2xl border text-left transition-all duration-200 relative overflow-hidden group ${
-                        isSelected
-                          ? 'border-indigo-600 bg-gradient-to-br from-indigo-50/80 via-white to-indigo-100/50 shadow-md ring-2 ring-indigo-500/20'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-xs'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3.5">
-                        <div
-                          className={`p-2.5 rounded-xl transition-all ${
-                            isSelected
-                              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                              : 'bg-slate-100 text-slate-600 group-hover:bg-slate-200'
-                          }`}
-                        >
-                          {cat.icon}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-900">{cat.label}</span>
-                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                              {cat.badge}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-1 leading-snug">{cat.desc}</p>
-                        </div>
-                      </div>
+          {/* Module 3: Facility Health Dial (Replaces 5 stars) */}
+          <FacilityHealthDial
+            value={formData.conditionRating}
+            onChange={(val) => setFormData((prev) => ({ ...prev, conditionRating: val }))}
+          />
 
-                      {isSelected && (
-                        <div className="absolute top-3 right-3 text-indigo-600">
-                          <CheckCircle className="w-5 h-5 fill-indigo-600 text-white" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+          {/* Module 4: Incident Telemetry & Evidence Station */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                Viễn thám sự cố & Bằng chứng hiện trường
+              </h4>
+              <span className="text-[10px] font-mono text-slate-400">TELEMETRY</span>
             </div>
 
-            {/* Priority / Urgency Selector */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-slate-50/80 border border-slate-200/90 space-y-3">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <ShieldAlert className="w-3.5 h-3.5 text-amber-500" /> Mức độ khẩn cấp xử lý (Priority Level)
-                </span>
-                <span className="text-[10px] text-slate-500">Quyết định tốc độ điều phối kỹ thuật</span>
+            {/* Urgency Priority Level */}
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">
+                Mức độ ưu tiên khắc phục
               </label>
-
-              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="grid grid-cols-3 gap-2">
                 {[
-                  {
-                    level: 'LOW' as PriorityLevel,
-                    title: 'Bình thường',
-                    sub: 'Bảo trì định kỳ',
-                    icon: '🟢',
-                    activeBg: 'bg-emerald-50 border-emerald-500 text-emerald-900 ring-2 ring-emerald-400/20'
-                  },
-                  {
-                    level: 'MEDIUM' as PriorityLevel,
-                    title: 'Cần bảo trì',
-                    sub: 'Trong 48 giờ',
-                    icon: '🟡',
-                    activeBg: 'bg-amber-50 border-amber-500 text-amber-900 ring-2 ring-amber-400/20'
-                  },
-                  {
-                    level: 'URGENT' as PriorityLevel,
-                    title: 'Khẩn cấp',
-                    sub: 'Cần sửa ngay',
-                    icon: '🔴',
-                    activeBg: 'bg-rose-50 border-rose-500 text-rose-900 ring-2 ring-rose-400/20 animate-pulse'
-                  }
+                  { id: 'LOW', label: 'Thường', color: 'border-slate-300 text-slate-600' },
+                  { id: 'MEDIUM', label: 'Ưu tiên', color: 'border-amber-400 text-amber-700 bg-amber-50/60' },
+                  { id: 'URGENT', label: 'Khẩn cấp', color: 'border-rose-500 text-rose-700 bg-rose-50/60 font-black' }
                 ].map((p) => {
-                  const isSelected = (formData.priority || 'MEDIUM') === p.level;
+                  const isSelected = formData.priority === p.id;
                   return (
                     <button
-                      key={p.level}
+                      key={p.id}
                       type="button"
-                      onClick={() => handleFieldChange('priority', p.level)}
-                      className={`p-3 rounded-xl border text-center transition-all ${
+                      onClick={() => setFormData((prev) => ({ ...prev, priority: p.id as PriorityLevel }))}
+                      className={`py-2 px-2 rounded-xl text-xs font-bold border transition-all text-center ${
                         isSelected
-                          ? `${p.activeBg} font-bold shadow-xs`
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                          ? p.id === 'URGENT'
+                            ? 'bg-rose-600 text-white border-rose-600 shadow-md shadow-rose-600/20'
+                            : 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
+                          : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                       }`}
                     >
-                      <div className="text-base mb-1">{p.icon}</div>
-                      <div className="text-xs font-bold leading-tight">{p.title}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5">{p.sub}</div>
+                      {p.label}
                     </button>
                   );
                 })}
               </div>
             </div>
-          </div>
-        )}
 
-        {/* ===================== STEP 3 ===================== */}
-        {step === 3 && (
-          <div className="space-y-6 animate-fadeIn">
-            {/* Condition Rating */}
-            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-b from-indigo-50/40 to-transparent border border-indigo-100">
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2 flex items-center justify-between">
-                <span>Chỉ số chất lượng & Tình trạng vận hành (Quality Score) <span className="text-rose-500">*</span></span>
-                <span className="text-[11px] font-bold text-indigo-600">Thang 1 — 5 Sao</span>
-              </label>
-              <StarRating
-                value={formData.conditionRating}
-                onChange={(val) => handleFieldChange('conditionRating', val)}
-                size="lg"
-              />
-            </div>
-
-            {/* 1-Touch Quick Defect Tags */}
+            {/* Quick Fault Tags */}
             <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-indigo-600" /> Nhãn sự cố nhanh (1-Touch Quick Tags)
-                </span>
-                <span className="text-[10px] text-slate-400">Chạm để chọn / hủy</span>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">
+                Thẻ lỗi thường gặp (Nhấn để chọn nhanh)
               </label>
-              <div className="flex flex-wrap gap-2">
-                {QUICK_TAGS.map((tag) => {
-                  const isSelected = (formData.quickTags || []).includes(tag);
+              <div className="flex flex-wrap gap-1.5">
+                {availableTags.map((tag) => {
+                  const isChecked = (formData.quickTags || []).includes(tag);
                   return (
                     <button
                       key={tag}
                       type="button"
-                      onClick={() => handleToggleQuickTag(tag)}
-                      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 active:scale-95 ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-400/30'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80'
+                      onClick={() => toggleQuickTag(tag)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                        isChecked
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                       }`}
                     >
-                      {tag} {isSelected && '✓'}
+                      {isChecked ? '✓ ' : '+ '}
+                      {tag}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            {/* Defect Notes */}
-            <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
-                <span>Mô tả chi tiết sự cố / Đề xuất nâng cấp</span>
-                {formData.conditionRating <= 3 && (!formData.quickTags || formData.quickTags.length === 0) && (
-                  <span className="text-rose-600 text-[11px] font-bold flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3" /> Yêu cầu ghi rõ khi đánh giá ≤ 3 sao
-                  </span>
-                )}
-              </label>
-              <textarea
-                rows={3}
-                placeholder="Ghi chú cụ thể: Máy chiếu chớp tắt, điều hòa không lạnh, dây mạng lỏng, bảng tương tác lệch cảm ứng..."
-                value={formData.defectNotes}
-                onChange={(e) => handleFieldChange('defectNotes', e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-xs resize-none"
-              />
-              <div className="text-right text-[10px] text-slate-400 mt-1">
-                {formData.defectNotes.length} ký tự
+            {/* Notes & Inspector Name */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                  Kiểm định viên phụ trách
+                </label>
+                <input
+                  type="text"
+                  value={formData.inspectorName || ''}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, inspectorName: e.target.value }))}
+                  placeholder="Nhập tên kiểm định viên..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">
+                  Ghi chú chi tiết hiện trường
+                </label>
+                <textarea
+                  rows={2}
+                  value={formData.defectNotes}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, defectNotes: e.target.value }))}
+                  placeholder="Mô tả cụ thể vị trí hư hỏng, tình trạng lỗi..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 transition-all resize-none"
+                />
               </div>
             </div>
 
-            {/* Camera Photo Capture */}
-            <div>
-              <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-2 flex items-center justify-between">
-                <span>Ảnh chụp hiện trường thực tế (Camera Photo)</span>
-                <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded">
-                  Lưu Offline IndexedDB
-                </span>
+            {/* Camera Evidence Snapshot */}
+            <div className="border-t border-slate-100 pt-3">
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Camera className="w-3.5 h-3.5 text-indigo-600" />
+                Ảnh chụp bằng chứng kiểm định (Capacitor Native / Web)
               </label>
               <CameraCapture
                 photoBase64={formData.photoBase64}
-                onPhotoChange={(base64) => handleFieldChange('photoBase64', base64)}
+                onPhotoChange={(base64) => setFormData((prev) => ({ ...prev, photoBase64: base64 }))}
               />
             </div>
           </div>
-        )}
+        </div>
 
-        {/* ===================== STEP 4 ===================== */}
-        {step === 4 && (
-          <div className="space-y-5 animate-fadeIn">
-            {/* Digital Audit Card (Phiếu kiểm định số công nghệ cao) */}
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-6 shadow-xl relative overflow-hidden">
-              {/* Card Hologram Decorative Glow */}
-              <div className="absolute top-0 right-0 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+        {/* Right 5/12 Columns: Live Digital Ticket & SlideToSubmit Action */}
+        <div className="lg:col-span-5 space-y-4 lg:sticky lg:top-4">
+          {/* Live Digital Ticket */}
+          <LiveAuditTicket
+            formData={formData}
+            isOnline={isOnline}
+            tempUuid={livePreviewUuid}
+          />
 
-              {/* Card Header */}
-              <div className="flex items-start justify-between border-b border-white/10 pb-4 mb-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-cyan-400/20 text-cyan-300 border border-cyan-400/30">
-                      Smart Audit Pass
-                    </span>
-                    <span className="text-xs text-slate-300">VKU Campus Quality</span>
-                  </div>
-                  <h3 className="text-xl font-black text-white mt-1.5 flex items-center gap-2">
-                    <span>Phòng {formData.roomNumber}</span>
-                    <span className="text-xs font-normal text-slate-300">({formData.building})</span>
-                  </h3>
-                </div>
-
-                <div className="text-right">
-                  <div className="text-[11px] font-mono text-cyan-300 flex items-center justify-end gap-1">
-                    <Clock className="w-3 h-3" /> {new Date().toLocaleDateString('vi-VN')}
-                  </div>
-                  <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">Thời gian kiểm định</div>
-                </div>
-              </div>
-
-              {/* Card Details Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs mb-4">
-                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-slate-400 text-[10px] block">Loại phòng:</span>
-                  <strong className="text-white text-xs mt-0.5 block truncate">
-                    {CLASSROOM_TYPES.find((c) => c.id === formData.classroomType)?.label || 'Phòng học'}
-                  </strong>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-slate-400 text-[10px] block">Hạng mục:</span>
-                  <strong className="text-white text-xs mt-0.5 block truncate">
-                    {activeCategoryObj.label}
-                  </strong>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-slate-400 text-[10px] block">Chất lượng:</span>
-                  <strong className="text-amber-300 text-xs mt-0.5 block">
-                    ★ {formData.conditionRating} / 5 ({formData.conditionRating * 20}%)
-                  </strong>
-                </div>
-
-                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-                  <span className="text-slate-400 text-[10px] block">Ưu tiên:</span>
-                  <strong
-                    className={`text-xs mt-0.5 block font-bold ${
-                      formData.priority === 'URGENT'
-                        ? 'text-rose-400'
-                        : formData.priority === 'MEDIUM'
-                        ? 'text-amber-400'
-                        : 'text-emerald-400'
-                    }`}
-                  >
-                    {formData.priority === 'URGENT' ? 'Khẩn cấp' : formData.priority === 'MEDIUM' ? 'Cần bảo trì' : 'Bình thường'}
-                  </strong>
-                </div>
-              </div>
-
-              {/* Inspector info */}
-              <div className="text-xs text-slate-300 mb-3 flex items-center justify-between border-t border-white/10 pt-3">
-                <span>Người kiểm tra: <strong>{formData.inspectorName || 'Ẩn danh / Sinh viên VKU'}</strong></span>
-                <span className="text-[11px] text-slate-400">Vị trí: {formData.floor}</span>
-              </div>
-
-              {/* Quick tags badges */}
-              {formData.quickTags && formData.quickTags.length > 0 && (
-                <div className="mb-3">
-                  <span className="text-[10px] text-slate-400 block mb-1">Các nhãn sự cố đã gắn:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {formData.quickTags.map((t) => (
-                      <span key={t} className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-500/30 text-cyan-200 border border-indigo-400/20">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Defect notes */}
-              {formData.defectNotes && (
-                <div className="bg-white/5 p-3 rounded-xl border border-white/10 text-xs text-slate-200 mb-3">
-                  <span className="text-slate-400 text-[10px] block font-semibold mb-0.5">Ghi chú sự cố:</span>
-                  <p className="italic">"{formData.defectNotes}"</p>
-                </div>
-              )}
-
-              {/* Attached Photo */}
-              {formData.photoBase64 && (
-                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white/5 border border-white/10">
-                  <img
-                    src={formData.photoBase64}
-                    alt="Ảnh minh chứng"
-                    className="w-14 h-14 object-cover rounded-lg border border-white/20"
-                  />
-                  <div className="text-xs">
-                    <span className="text-emerald-400 font-bold block">✓ Đã đính kèm ảnh minh chứng hiện trường</span>
-                    <span className="text-slate-400 text-[10px]">Đã nén và sẵn sàng đồng bộ</span>
-                  </div>
-                </div>
-              )}
+          {/* New Novel Submission Mechanism: Slide To Submit */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <FileCheck2 className="w-4 h-4 text-indigo-600" />
+                Ký số & Phát lệnh kiểm định
+              </span>
+              <span className="text-[10px] font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-full">
+                SLIDE-TO-DISPATCH
+              </span>
             </div>
 
-            {/* Offline/Online Dispatch Status Hint */}
-            <div
-              className={`p-3.5 rounded-2xl border text-xs flex items-center gap-3 ${
-                isOnline
-                  ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                  : 'bg-amber-50 text-amber-900 border-amber-200'
-              }`}
-            >
-              <Save className="w-5 h-5 shrink-0 text-emerald-600" />
-              <div>
-                <strong className="block">
-                  {isOnline ? 'Thiết bị đang Trực tuyến (Online)' : 'Thiết bị đang Ngoại tuyến (Offline)'}
-                </strong>
-                <span className="opacity-90 mt-0.5 block text-[11px]">
-                  {isOnline
-                    ? 'Phiếu sẽ được gửi trực tiếp lên cơ sở dữ liệu Cloudflare D1/KV.'
-                    : 'Phiếu sẽ được cấp mã định danh duy nhất (UUID), lưu an toàn vào Hàng đợi IndexedDB và tự động đồng bộ khi có Wi-Fi/4G.'}
+            <SlideToSubmit
+              onConfirm={handleDispatchSubmit}
+              isLoading={isSubmitting}
+              label="Trượt để phát lệnh & Đồng bộ Cloud"
+              successLabel="Đang lưu & phát lệnh D1..."
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Success Modal / Certificate Overlay */}
+      {successModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-indigo-500/40 text-white max-w-md w-full rounded-3xl p-6 shadow-2xl space-y-5 text-center relative overflow-hidden">
+            <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-indigo-500 to-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+              <ShieldCheck className="w-9 h-9" />
+            </div>
+
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400 font-bold block mb-1">
+                DISPATCH PROTOCOL EXECUTED
+              </span>
+              <h3 className="text-xl font-black text-white">
+                Kiểm Định Đã Phát Hành Thành Công!
+              </h3>
+              <p className="text-xs text-slate-300 mt-2">
+                Hồ sơ phòng <span className="text-cyan-300 font-bold">{successModalData.room}</span> đã được ký duyệt bảo mật và ghi nhận.
+              </p>
+            </div>
+
+            <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-3 text-left font-mono text-xs space-y-1.5">
+              <div className="flex justify-between text-slate-400">
+                <span>Mã số UUID:</span>
+                <span className="text-white font-bold">{successModalData.uuid.slice(0, 18)}...</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Cơ chế đồng bộ:</span>
+                <span className={successModalData.online ? 'text-emerald-400 font-bold' : 'text-amber-400 font-bold'}>
+                  {successModalData.online ? 'Cloudflare D1 Instant Sync' : 'IndexedDB Offline Queue'}
                 </span>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSuccessModalData(null);
+                onSubmitted();
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-indigo-500/30 transition-all"
+            >
+              Chuyển đến Hàng đợi & Lịch sử
+            </button>
           </div>
-        )}
-
-        {/* Form Footer Action Buttons */}
-        <div className="pt-5 border-t border-slate-200/80 flex items-center justify-between gap-3">
-          {step > 1 ? (
-            <button
-              type="button"
-              onClick={handleBack}
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all active:scale-95"
-            >
-              <ArrowLeft className="w-4 h-4" /> Quay lại
-            </button>
-          ) : (
-            <div />
-          )}
-
-          {step < 4 ? (
-            <button
-              type="button"
-              onClick={handleNext}
-              className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 active:scale-95 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition-all ml-auto"
-            >
-              Tiếp tục bước {step + 1} <ArrowRight className="w-4 h-4" />
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center gap-2 px-7 py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-cyan-600 hover:from-indigo-700 hover:to-cyan-700 active:scale-95 text-white text-xs font-extrabold shadow-lg shadow-indigo-600/30 transition-all ml-auto disabled:opacity-50"
-            >
-              {isSubmitting ? (
-                <>Đang lưu dữ liệu...</>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>{isOnline ? 'Xác nhận & Nộp Phiếu' : 'Lưu vào Hàng đợi Offline (UUID)'}</span>
-                </>
-              )}
-            </button>
-          )}
         </div>
-      </form>
+      )}
     </div>
   );
 };
