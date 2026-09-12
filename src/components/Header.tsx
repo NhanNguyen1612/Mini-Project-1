@@ -135,21 +135,31 @@ export const Header: React.FC<HeaderProps> = ({ pendingCount, onSyncTriggered })
             </button>
           )}
 
-          {/* Install PWA Prompt button */}
+          {/* Direct APK Download Button */}
+          <a
+            href="/vku-smart-audit.apk"
+            download="vku-smart-audit.apk"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-indigo-600 via-indigo-700 to-cyan-600 text-white hover:from-indigo-500 hover:to-cyan-500 shadow-md shadow-indigo-600/30 active:scale-95 transition-all cursor-pointer ring-1 ring-white/20"
+            title="Tải trực tiếp file APK Android về máy"
+          >
+            <Download className="w-3.5 h-3.5 animate-bounce" />
+            <span className="font-extrabold">Tải APK</span>
+          </a>
+
+          {/* Optional Install PWA Prompt */}
           {deferredPrompt && !isInstalled && (
             <button
               onClick={handleInstallPWA}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-gradient-to-r from-indigo-600 to-indigo-700 text-white hover:from-indigo-700 hover:to-indigo-800 shadow-sm shadow-indigo-600/30 active:scale-95 transition-all"
+              className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 active:scale-95 transition-all"
               title="Cài đặt PWA lên màn hình chính"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Cài đặt App</span>
+              <span>Cài PWA</span>
             </button>
           )}
 
           {isInstalled && (
-            <span className="hidden md:flex items-center gap-1 text-xs text-emerald-600 font-bold px-2">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Đã cài đặt
+            <span className="hidden md:flex items-center gap-1 text-xs text-emerald-600 font-bold px-1">
+              <CheckCircle2 className="w-3.5 h-3.5" /> App
             </span>
           )}
         </div>

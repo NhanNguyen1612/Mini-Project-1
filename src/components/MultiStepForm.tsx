@@ -10,7 +10,8 @@ import {
   ShieldCheck,
   Radio,
   FileCheck2,
-  Camera
+  Camera,
+  Download
 } from 'lucide-react';
 import type {
   SurveyFormData,
@@ -264,6 +265,17 @@ export const MultiStepForm: React.FC<MultiStepFormProps> = ({ onSubmitted }) => 
         </div>
 
         <div className="flex items-center gap-2">
+          <a
+            href="/vku-smart-audit.apk"
+            download="vku-smart-audit.apk"
+            className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-300 hover:text-cyan-200 bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-700/80 px-2.5 py-1.5 rounded-lg transition-all shadow-xs"
+            title="Tải tệp cài đặt APK Android trực tiếp"
+          >
+            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Tải APK Native</span>
+            <span className="sm:hidden">APK</span>
+          </a>
+
           {hasRestoredDraft && (
             <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-800/80 px-2 py-1 rounded-lg">
               <CheckCircle2 className="w-3.5 h-3.5" />

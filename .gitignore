@@ -29,5 +29,6 @@ android/build/
 android/app/build/
 android/local.properties
 *.apk
+!public/*.apk
 .wrangler/
 
